@@ -51,14 +51,16 @@ class OneRClassifier(BaseEstimator, ClassifierMixin):
         for idx in range(len(sorted_y)):
             cls = sorted_y[idx]
             current_bin[cls] = current_bin.get(cls, 0) + 1
-            
-            current_bin_size = idx - bin_starts[-1] + 1
 
-            if idx < len(sorted_y) - 1:
-                if (sorted_y[idx] != sorted_y[idx + 1] and
-                    sorted_vals[idx] != sorted_vals[idx + 1] and
-                    current_bin_size >= self.min_bucket_size):
-                    
+            majority_count = max(current_bin.values())
+            majority_class = max(current_bin, key=current_bin.get)
+
+            # Check if bin dimension is sufficient and if we can split at the next point
+            if majority_count >= self.min_bucket_size and idx < len(sorted_y) - 1:
+                next_cls = sorted_y[idx + 1]
+                
+                # Only split if the next class is different and the feature value changes (to avoid splitting on identical values)
+                if next_cls != majority_class and sorted_vals[idx] != sorted_vals[idx + 1]:
                     bins.append(dict(current_bin))
                     bin_starts.append(idx + 1)
                     current_bin = {}
