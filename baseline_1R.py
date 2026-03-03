@@ -9,6 +9,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.metrics import accuracy_score, f1_score, cohen_kappa_score
 from sklearn.model_selection import StratifiedKFold
+from confidence_intervals import get_confidence_interval
 
 from config import PROCESSED_DATA_DIR
 
@@ -210,6 +211,9 @@ def train_1r_baseline():
     print(f"\n{'='*50}\nTraining Model: 1R Baseline\n{'='*50}")
     
     outer_accuracies, outer_f1, outer_kappa = [], [], []
+
+    total_instances = 0
+    total_successes = 0
     
     for i, (train_ix, test_ix) in enumerate(outer_cv.split(X, y)):
         X_train, X_test = X.iloc[train_ix], X.iloc[test_ix]
@@ -219,14 +223,23 @@ def train_1r_baseline():
 
         y_pred = baseline_pipeline.predict(X_test)
         
-        outer_accuracies.append(accuracy_score(y_test, y_pred))
+        # Metrics for each fold
+        fold_acc = accuracy_score(y_test, y_pred)
+        outer_accuracies.append(fold_acc)
         outer_f1.append(f1_score(y_test, y_pred))
         outer_kappa.append(cohen_kappa_score(y_test, y_pred))
+
+        # Update totals for confidence interval calculation
+        fold_instances = len(y_test)
+        fold_successes = accuracy_score(y_test, y_pred, normalize=False)  # Number of correct predictions
+        
+        total_instances += fold_instances
+        total_successes += fold_successes
 
         best_feat_idx = baseline_pipeline.named_steps["clf"].best_feature_idx_
         best_rule = baseline_pipeline.named_steps["clf"].best_rule_
         feat_names = baseline_pipeline.named_steps["prep"].get_feature_names_out()
-        best_feat_name = feat_names[best_feat_idx].split("__")[-1]  # Remove transformer prefix
+        best_feat_name = feat_names[best_feat_idx].split("__")[-1]
 
         if best_rule["type"] == "numerical":
             n_bins = len(best_rule["breakpoints"]) + 1
@@ -235,26 +248,17 @@ def train_1r_baseline():
             rule_desc = f"{len(best_rule['mapping'])} values"
 
         print(f"Fold {i+1}/10 | F1: {outer_f1[-1]:.4f} | Acc: {outer_accuracies[-1]:.4f} | Rule based on: {best_feat_name} ({rule_desc})")
-
-    n_folds = len(outer_accuracies)
-
+    
     mean_acc = np.mean(outer_accuracies)
-    std_acc = np.std(outer_accuracies, ddof=1)
-    ci_acc = stats.t.interval(0.99, df=n_folds-1, loc=mean_acc, scale=std_acc/np.sqrt(n_folds))
-
     mean_f1 = np.mean(outer_f1)
-    std_f1 = np.std(outer_f1, ddof=1)
-    ci_f1 = stats.t.interval(0.99, df=n_folds-1, loc=mean_f1, scale=std_f1/np.sqrt(n_folds))
-
     mean_kappa = np.mean(outer_kappa)
-    std_kappa = np.std(outer_kappa, ddof=1)
-    ci_kappa = stats.t.interval(0.99, df=n_folds-1, loc=mean_kappa, scale=std_kappa/np.sqrt(n_folds))
+    ci_acc_lower, ci_acc_upper = get_confidence_interval(total_successes, total_instances, confidence=0.99)
 
     print(f"\n--- 1R Baseline Results ---")
-    print(f"Accuracy:  {mean_acc:.4f} (99% CI: {ci_acc[0]:.4f} - {ci_acc[1]:.4f})")
-    print(f"F1-Score:  {mean_f1:.4f} (99% CI: {ci_f1[0]:.4f} - {ci_f1[1]:.4f})")
-    print(f"Kappa Stat:{mean_kappa:.4f} (99% CI: {ci_kappa[0]:.4f} - {ci_kappa[1]:.4f})")
-
+    print(f"Total Instances Evaluated (N): {total_instances}")
+    print(f"Accuracy:  {mean_acc:.4f} (99% CI: {ci_acc_lower:.4f} - {ci_acc_upper:.4f})")
+    print(f"F1-Score:  {mean_f1:.4f}")
+    print(f"Kappa Stat:{mean_kappa:.4f}")
 
 if __name__ == "__main__":
     train_1r_baseline()
