@@ -15,7 +15,7 @@ from sklearn.metrics import accuracy_score, f1_score, cohen_kappa_score
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from confidence_intervals import get_confidence_interval
 
-from config import MODELS_DIR, PROCESSED_DATA_DIR, RESULTS_DIR
+from config import PROCESSED_DATA_DIR, RESULTS_DIR
 
 def train_and_evaluate():
     data_path = f"{PROCESSED_DATA_DIR}/clean_dataset.csv"
@@ -195,9 +195,7 @@ def train_and_evaluate():
             'y_prob': y_prob_all
         }
 
-    joblib.dump(all_results, f"{PROCESSED_DATA_DIR}/cv_evaluation_results.pkl")
+    joblib.dump(all_results, f"{RESULTS_DIR}/cv_evaluation_results.pkl")
 
 if __name__ == "__main__":
-    import os
-    os.makedirs(MODELS_DIR, exist_ok=True)
     train_and_evaluate()
