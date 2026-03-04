@@ -29,26 +29,26 @@ def train_and_evaluate():
     numerical_features = ["Age", "RestingBP", "Cholesterol", "MaxHR", "Oldpeak"]
     categorical_features = ["Sex", "ChestPainType", "RestingECG", "ExerciseAngina", "ST_Slope"]
 
+    # CATEGORICAL PIPELINE
     # Imputation strategy for categorical features is set to most_frequent (for future cases where missing values might be present)
     base_cat_pipeline = Pipeline([
         ("imputer", SimpleImputer(strategy="most_frequent")),
         ("encoder", OneHotEncoder(drop="first", sparse_output=False, handle_unknown="ignore"))
     ])
 
-    standard_preprocessor = ColumnTransformer(
-        transformers=[
-            # For numerical features, KNN imputation is applied for missing values with default parameters (n_neighbors=5)
-            ("num", Pipeline([("imputer", KNNImputer()), ("scaler", StandardScaler())]), numerical_features),
-            ("cat", base_cat_pipeline, categorical_features),
-        ],
-        remainder="passthrough"
-    )
+    # NUMERICAL PIPELINE
+    # StandardScaler must be applied before KNNImputer. If we impute raw data, Euclidean distances will be heavily dominated by features with large scales (like Cholesterol), 
+    # distorting the nearest neighbors. StandardScaler handles NaNs safely by ignoring them during the mean/variance calculation.
+    base_num_pipeline = Pipeline([
+        ("scaler", StandardScaler()), 
+        # For numerical features, KNN imputation is applied for missing values with default parameters (n_neighbors=5).
+        ("imputer", KNNImputer())
+    ])
 
-    knn_preprocessor = ColumnTransformer(
+    #
+    preprocessor = ColumnTransformer(
         transformers=[
-            # For KNN, only the numerical features are imputed and the categorical features are encoded, but scaling is not applied here.
-            # The scaling is applied globally after the entire feature set is processed, ensuring that the KNN distance metric treats all features equally without distortion.
-            ("num", Pipeline([("imputer", KNNImputer())]), numerical_features),
+            ("num", base_num_pipeline, numerical_features),
             ("cat", base_cat_pipeline, categorical_features),
         ],
         remainder="passthrough"
@@ -57,30 +57,35 @@ def train_and_evaluate():
     models = {
         "Logistic_Regression": {
             "estimator": Pipeline([
-                ("prep", standard_preprocessor), 
+                ("prep", preprocessor), 
                 ("clf", LogisticRegression(max_iter=2000, random_state=42, solver='saga'))
             ]),
             "param_grid": {
                 "clf__C": [0.01, 0.1, 1.0, 10.0], 
-                "clf__l1_ratio": [0, 0.5, 1],
+                "clf__l1_ratio": [0, 0.5, 1], # 0=Ridge(L2), 1=Lasso(L1), 0.5=ElasticNet
                 "clf__class_weight": [None, "balanced"]
             }
         },
         "KNN": {
             "estimator": Pipeline([
-                ("prep", knn_preprocessor), 
-                # To prevent continuous features from dominating the Euclidean distance, a single global StandardScaler is applied to both numerical and one-hot encoded features.
-                # 'preprocessor_knn' deliberately omits internal scaling to avoid scaling numericals twice.
+                ("prep", preprocessor), 
+                # At this point, numericals are scaled but categoricals (OHE) have a max variance of 0.25.
+                # To prevent categorical features from losing weight in the KNN Euclidean distance computation, a global StandardScaler is applied. 
+                # It scales categoricals to unit variance and acts as a neutral operation on the already-scaled numericals.
                 ("scaler_all", StandardScaler()),
-                ("clf", KNeighborsClassifier()),]),
+                ("clf", KNeighborsClassifier())
+            ]),
             "param_grid": {
                 "clf__n_neighbors": [3, 5, 7, 9, 11], 
                 "clf__weights": ["uniform", "distance"],
-                "clf__metric": ["euclidean", "manhattan"],
+                "clf__metric": ["euclidean", "manhattan"]
             }
         },
         "Random_Forest": {
-            "estimator": Pipeline([("prep", standard_preprocessor), ("clf", RandomForestClassifier(random_state=42))]),
+            "estimator": Pipeline([
+                ("prep", preprocessor), 
+                ("clf", RandomForestClassifier(random_state=42))
+            ]),
             "param_grid": {
                 "clf__n_estimators": [50, 100, 200],
                 "clf__max_depth": [None, 10, 20],
@@ -90,6 +95,7 @@ def train_and_evaluate():
         }
     }
 
+    # Nested Cross-Validation
     outer_cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
     inner_cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42) 
 
@@ -107,6 +113,7 @@ def train_and_evaluate():
             X_train, X_test = X.iloc[train_ix], X.iloc[test_ix]
             y_train, y_test = y.iloc[train_ix], y.iloc[test_ix]
 
+            # Inner CV for Hyperparameter Tuning
             clf_search = GridSearchCV(config["estimator"], config["param_grid"], cv=inner_cv, scoring="f1", n_jobs=-1)
             clf_search.fit(X_train, y_train)
 
@@ -114,12 +121,13 @@ def train_and_evaluate():
             y_pred = best_model_fold.predict(X_test)
             y_prob = best_model_fold.predict_proba(X_test)[:, 1]
             
+            # Metrics Evaluation
             fold_acc = accuracy_score(y_test, y_pred)
             outer_accuracies.append(fold_acc)
             outer_f1.append(f1_score(y_test, y_pred))
             outer_kappa.append(cohen_kappa_score(y_test, y_pred))
             
-            # Update totals for confidence interval calculation
+            # Exact counts for Confidence Intervals
             fold_instances = len(y_test)
             fold_successes = accuracy_score(y_test, y_pred, normalize=False)
             total_instances += fold_instances
@@ -131,11 +139,11 @@ def train_and_evaluate():
             print(f"Fold {i+1}/10 | F1: {outer_f1[-1]:.4f} | Acc: {outer_accuracies[-1]:.4f} | Kappa: {outer_kappa[-1]:.4f}")
             print(f"Params: {clf_search.best_params_}\n")
 
+        # Aggregate Results
         mean_acc = np.mean(outer_accuracies)
-        ci_acc_lower, ci_acc_upper = get_confidence_interval(total_successes, total_instances, confidence=0.99)
         mean_f1 = np.mean(outer_f1)
-        
         mean_kappa = np.mean(outer_kappa)
+        ci_acc_lower, ci_acc_upper = get_confidence_interval(total_successes, total_instances, confidence=0.99)
 
         print(f"\n--- {model_name} Results ---")
         print(f"Total Instances Evaluated (N): {total_instances}")
@@ -178,6 +186,7 @@ def train_and_evaluate():
         
         print(f"\nResults saved to: {results_file}")
 
+        # Store for PKL dump
         all_results[model_name] = {
             'accuracies': outer_accuracies,
             'f1_scores': outer_f1,
