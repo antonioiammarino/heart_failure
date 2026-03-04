@@ -1,7 +1,7 @@
-import joblib
+import json
+import os
 import numpy as np
 import pandas as pd
-import scipy.stats as stats
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
@@ -11,11 +11,9 @@ from sklearn.metrics import accuracy_score, f1_score, cohen_kappa_score
 from sklearn.model_selection import StratifiedKFold
 from confidence_intervals import get_confidence_interval
 
-from config import PROCESSED_DATA_DIR
-
+from config import PROCESSED_DATA_DIR, RESULTS_DIR
 
 class OneRClassifier(BaseEstimator, ClassifierMixin):
-
     def __init__(self, min_bucket_size=6, numerical_feature_mask=None):
         self.min_bucket_size = min_bucket_size
         self.numerical_feature_mask = numerical_feature_mask
@@ -176,7 +174,6 @@ class OneRClassifier(BaseEstimator, ClassifierMixin):
         col = X[:, self.best_feature_idx_]
         return np.array([self._predict_single(v) for v in col])
 
-
 def train_1r_baseline():
     data_path = f"{PROCESSED_DATA_DIR}/clean_dataset.csv"
     df = pd.read_csv(data_path)
@@ -247,7 +244,7 @@ def train_1r_baseline():
         else:
             rule_desc = f"{len(best_rule['mapping'])} values"
 
-        print(f"Fold {i+1}/10 | F1: {outer_f1[-1]:.4f} | Acc: {outer_accuracies[-1]:.4f} | Rule based on: {best_feat_name} ({rule_desc})")
+        print(f"Fold {i+1}/10 | F1: {outer_f1[-1]:.4f} | Acc: {outer_accuracies[-1]:.4f} | Kappa: {outer_kappa[-1]:.4f} | Rule based on: {best_feat_name} ({rule_desc})")
     
     mean_acc = np.mean(outer_accuracies)
     mean_f1 = np.mean(outer_f1)
@@ -259,6 +256,41 @@ def train_1r_baseline():
     print(f"Accuracy:  {mean_acc:.4f} (99% CI: {ci_acc_lower:.4f} - {ci_acc_upper:.4f})")
     print(f"F1-Score:  {mean_f1:.4f}")
     print(f"Kappa Stat:{mean_kappa:.4f}")
+
+    # Save results to JSON file
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    results_file = f"{RESULTS_DIR}/1r_baseline.json"
+    
+    results = {
+        "model": "1R Baseline",
+        "total_instances": int(total_instances),
+        "total_successes": int(total_successes),
+        "metrics": {
+            "accuracy": float(mean_acc),
+            "f1_score": float(mean_f1),
+            "kappa_stat": float(mean_kappa),
+            "confidence_interval_99": {
+                "lower": float(ci_acc_lower),
+                "upper": float(ci_acc_upper)
+            }
+        },
+        "folds": []
+    }
+    
+    # Ricostruisci i risultati per ogni fold
+    for i in range(len(outer_accuracies)):
+        fold_result = {
+            "fold": i + 1,
+            "accuracy": float(outer_accuracies[i]),
+            "f1_score": float(outer_f1[i]),
+            "kappa_stat": float(outer_kappa[i])
+        }
+        results["folds"].append(fold_result)
+    
+    with open(results_file, "w") as f:
+        json.dump(results, f, indent=2)
+    
+    print(f"\nResults saved to: {results_file}")
 
 if __name__ == "__main__":
     train_1r_baseline()
