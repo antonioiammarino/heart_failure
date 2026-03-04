@@ -1,4 +1,5 @@
 import json
+import joblib
 import os
 import numpy as np
 import pandas as pd
@@ -173,6 +174,12 @@ class OneRClassifier(BaseEstimator, ClassifierMixin):
             X = X.values
         col = X[:, self.best_feature_idx_]
         return np.array([self._predict_single(v) for v in col])
+    
+    def predict_proba(self, X):
+        preds = self.predict(X)
+        proba = np.zeros((len(preds), 2))
+        proba[np.arange(len(preds)), preds] = 1.0
+        return proba
 
 def train_1r_baseline():
     data_path = f"{PROCESSED_DATA_DIR}/clean_dataset.csv"
@@ -208,6 +215,7 @@ def train_1r_baseline():
     print(f"\n{'='*50}\nTraining Model: 1R Baseline\n{'='*50}")
     
     outer_accuracies, outer_f1, outer_kappa = [], [], []
+    y_true_all, y_prob_all = [], []
 
     total_instances = 0
     total_successes = 0
@@ -219,6 +227,9 @@ def train_1r_baseline():
         baseline_pipeline.fit(X_train, y_train)
 
         y_pred = baseline_pipeline.predict(X_test)
+        y_prob = baseline_pipeline.predict_proba(X_test)[:, 1]
+        y_true_all.extend(y_test.values)
+        y_prob_all.extend(y_prob)
         
         # Metrics for each fold
         fold_acc = accuracy_score(y_test, y_pred)
@@ -277,7 +288,7 @@ def train_1r_baseline():
         "folds": []
     }
     
-    # Ricostruisci i risultati per ogni fold
+    # Results for each fold
     for i in range(len(outer_accuracies)):
         fold_result = {
             "fold": i + 1,
@@ -290,7 +301,18 @@ def train_1r_baseline():
     with open(results_file, "w") as f:
         json.dump(results, f, indent=2)
     
-    print(f"\nResults saved to: {results_file}")
+    # Save full results for PKL dump
+    results_1r = {
+        "1R_Baseline": {
+            'accuracies': outer_accuracies,
+            'f1_scores': outer_f1,
+            'kappa_scores': outer_kappa,
+            'y_true': y_true_all,
+            'y_prob': y_prob_all
+        }
+    }
+    
+    joblib.dump(results_1r, f"{RESULTS_DIR}/1r_baseline_results.pkl")
 
 if __name__ == "__main__":
     train_1r_baseline()
