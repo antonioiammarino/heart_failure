@@ -9,7 +9,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.metrics import accuracy_score, f1_score, cohen_kappa_score
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import RepeatedStratifiedKFold
 from confidence_intervals import get_confidence_interval
 
 from config import PROCESSED_DATA_DIR, RESULTS_DIR
@@ -210,7 +210,11 @@ def train_1r_baseline():
         ("clf", OneRClassifier(min_bucket_size=6, numerical_feature_mask=numerical_mask))
     ])
 
-    outer_cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
+    n_split = 10
+    n_repeats = 10
+    total_folds = n_split * n_repeats
+    # 10-Times Repeated Stratified 10-Fold CV
+    outer_cv = RepeatedStratifiedKFold(n_splits=n_split, n_repeats=n_repeats, random_state=42)
 
     print(f"\n{'='*50}\nTraining Model: 1R Baseline\n{'='*50}")
     
@@ -255,7 +259,7 @@ def train_1r_baseline():
         else:
             rule_desc = f"{len(best_rule['mapping'])} values"
 
-        print(f"Fold {i+1}/10 | F1: {outer_f1[-1]:.4f} | Acc: {outer_accuracies[-1]:.4f} | Kappa: {outer_kappa[-1]:.4f} | Rule based on: {best_feat_name} ({rule_desc})")
+        print(f"Fold {i+1}/{total_folds} | F1: {outer_f1[-1]:.4f} | Acc: {outer_accuracies[-1]:.4f} | Kappa: {outer_kappa[-1]:.4f} | Rule based on: {best_feat_name} ({rule_desc})")
     
     mean_acc = np.mean(outer_accuracies)
     mean_f1 = np.mean(outer_f1)
