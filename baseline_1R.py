@@ -54,7 +54,7 @@ class OneRClassifier(BaseEstimator, ClassifierMixin):
             majority_count = max(current_bin.values())
             majority_class = max(current_bin, key=current_bin.get)
 
-            # Check if bin dimension is sufficient and if we can split at the next point
+            # Check if bin dimension is sufficient and if a split can be made at the next point
             if majority_count >= self.min_bucket_size and idx < len(sorted_y) - 1:
                 next_cls = sorted_y[idx + 1]
                 
@@ -181,7 +181,7 @@ def train_1r_baseline():
     y = df["HeartDisease"]
 
     numerical_features = ["Age", "RestingBP", "Cholesterol", "MaxHR", "Oldpeak"]
-    # FastingBs is numerical but has only 2 unique values (0 and 1). In 1R, we can treat it as categorical
+    # FastingBs is numerical but has only 2 unique values (0 and 1). In 1R, it can be treated as categorical
     categorical_features = ["Sex", "ChestPainType", "RestingECG", "ExerciseAngina", "ST_Slope", "FastingBS"]
 
     preprocessor_1r = ColumnTransformer(
