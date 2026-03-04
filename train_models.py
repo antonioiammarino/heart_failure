@@ -12,7 +12,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score, f1_score, cohen_kappa_score
-from sklearn.model_selection import GridSearchCV, StratifiedKFold
+from sklearn.model_selection import GridSearchCV, RepeatedStratifiedKFold
 from confidence_intervals import get_confidence_interval
 
 from config import PROCESSED_DATA_DIR, RESULTS_DIR
@@ -95,9 +95,14 @@ def train_and_evaluate():
         }
     }
 
-    # Nested Cross-Validation
-    outer_cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
-    inner_cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42) 
+    # Repeated Nested Cross-Validation
+    n_split = 10
+    n_repeats = 10
+    total_folds = n_split * n_repeats
+    # 10-Times Repeated Stratified 10-Fold Nested CV: 100 total train/test evaluations per model
+    outer_cv = RepeatedStratifiedKFold(n_splits=n_split, n_repeats=n_repeats, random_state=42)
+    # 10-Times Repeated Stratified 5-Fold CV for inner hyperparameter tuning: 50 total evaluations per fold
+    inner_cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=10, random_state=42)
 
     all_results = {}
 
@@ -136,7 +141,7 @@ def train_and_evaluate():
             y_true_all.extend(y_test.values)
             y_prob_all.extend(y_prob)
 
-            print(f"Fold {i+1}/10 | F1: {outer_f1[-1]:.4f} | Acc: {outer_accuracies[-1]:.4f} | Kappa: {outer_kappa[-1]:.4f}")
+            print(f"Fold {i+1}/{total_folds} | F1: {outer_f1[-1]:.4f} | Acc: {outer_accuracies[-1]:.4f} | Kappa: {outer_kappa[-1]:.4f}")
             print(f"Params: {clf_search.best_params_}\n")
 
         # Aggregate Results
