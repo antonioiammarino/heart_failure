@@ -3,11 +3,22 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python>=3.10
+  # Core
+  - python=3.11
+
+  # Jupyter & Notebook Tools
+  - jupyter
+  - ipykernel
+
+  # Data Manipulation & Math
   - numpy=2.4.2
   - pandas=3.0.1
   - scipy=1.17.1
+
+  # Machine Learning
+  - scikit-learn=1.8.0
+  - joblib=1.5.3
+
+  # Data Visualization
   - matplotlib=3.10.8
   - seaborn=0.13.2
-  - ipykernel>=6.0.0
-  - jupyter>=1.0.0
