@@ -5,8 +5,5 @@ from pathlib import Path
 RAW_DATA_DIR = "data/raw"
 PROCESSED_DATA_DIR = "data/processed"
 
-# Models directory name
-MODELS_DIR = "models"
-
 # Results directory name
 RESULTS_DIR = "results"
