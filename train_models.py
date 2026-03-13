@@ -45,7 +45,6 @@ def train_and_evaluate():
         ("imputer", KNNImputer())
     ])
 
-    #
     preprocessor = ColumnTransformer(
         transformers=[
             ("num", base_num_pipeline, numerical_features),
