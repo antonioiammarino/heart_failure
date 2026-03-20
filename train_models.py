@@ -13,7 +13,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score, f1_score, cohen_kappa_score
 from sklearn.model_selection import GridSearchCV, RepeatedStratifiedKFold
-from confidence_intervals import get_confidence_interval
+from confidence_intervals import get_nadeau_bengio_ci
 
 from config import PROCESSED_DATA_DIR, RESULTS_DIR
 
@@ -110,8 +110,6 @@ def train_and_evaluate():
         
         outer_accuracies, outer_f1, outer_kappa = [], [], []
         y_true_all, y_prob_all = [], []
-        total_instances = 0
-        total_successes = 0
         
         for i, (train_ix, test_ix) in enumerate(outer_cv.split(X, y)):
             X_train, X_test = X.iloc[train_ix], X.iloc[test_ix]
@@ -131,12 +129,6 @@ def train_and_evaluate():
             outer_f1.append(f1_score(y_test, y_pred))
             outer_kappa.append(cohen_kappa_score(y_test, y_pred))
             
-            # Exact counts for Confidence Intervals
-            fold_instances = len(y_test)
-            fold_successes = accuracy_score(y_test, y_pred, normalize=False)
-            total_instances += fold_instances
-            total_successes += fold_successes
-            
             y_true_all.extend(y_test.values)
             y_prob_all.extend(y_prob)
 
@@ -147,10 +139,21 @@ def train_and_evaluate():
         mean_acc = np.mean(outer_accuracies)
         mean_f1 = np.mean(outer_f1)
         mean_kappa = np.mean(outer_kappa)
-        ci_acc_lower, ci_acc_upper = get_confidence_interval(total_successes, total_instances, confidence=0.99)
+        
+        # Calculate Nadeau-Bengio Confidence Interval for Accuracy
+        n_total = len(X)
+        n_test = n_total / n_split
+        n_train = n_total - n_test
+        
+        ci_acc_lower, ci_acc_upper = get_nadeau_bengio_ci(
+            accuracies=outer_accuracies, 
+            n_train=n_train, 
+            n_test=n_test, 
+            confidence=0.99
+        )
 
         print(f"\n--- {model_name} Results ---")
-        print(f"Total Instances Evaluated (N): {total_instances}")
+        print(f"Total Instances Evaluated (N): {n_total}")
         print(f"Accuracy:    {mean_acc:.4f} (99% CI: {ci_acc_lower:.4f} - {ci_acc_upper:.4f})")
         print(f"F1-Score:    {mean_f1:.4f}")
         print(f"Kappa Stat:  {mean_kappa:.4f}")
@@ -161,8 +164,6 @@ def train_and_evaluate():
         
         results = {
             "model": model_name,
-            "total_instances": int(total_instances),
-            "total_successes": int(total_successes),
             "metrics": {
                 "accuracy": float(mean_acc),
                 "f1_score": float(mean_f1),
