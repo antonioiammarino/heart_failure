@@ -37,10 +37,13 @@ def train_and_evaluate():
     # NUMERICAL PIPELINE
     # StandardScaler must be applied before KNNImputer. If we impute raw data, Euclidean distances will be heavily dominated by features with large scales (like Cholesterol), 
     # distorting the nearest neighbors. StandardScaler handles NaNs safely by ignoring them during the mean/variance calculation.
+    # After imputation, a second StandardScaler is applied to re-standardize the data. The imputed values can introduce a minor variance shift, and this step ensures all 
+    # features are on the same scale for the classifiers, especially KNN which is sensitive to feature scales.
     base_num_pipeline = Pipeline([
-        ("scaler", StandardScaler()), 
+        ("scaler_before", StandardScaler()), 
         # For numerical features, KNN imputation is applied for missing values with default parameters (n_neighbors=5).
-        ("imputer", KNNImputer())
+        ("imputer", KNNImputer()),
+        ("scaler_after", StandardScaler())
     ])
 
     preprocessor = ColumnTransformer(
