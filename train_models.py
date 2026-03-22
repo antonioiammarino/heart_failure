@@ -11,6 +11,7 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, f1_score, cohen_kappa_score
 from sklearn.model_selection import GridSearchCV, RepeatedStratifiedKFold
 from confidence_intervals import get_nadeau_bengio_ci
@@ -23,10 +24,7 @@ def train_and_evaluate():
     X = df.drop("HeartDisease", axis=1)
     y = df["HeartDisease"]
 
-    # FastingBs is numerical but has only 2 unique values (0 and 1). 
-    # Discard it now and use passthrough to keep it in the pipeline without transformation, as it is already clean and binary. 
-    # This prevents unnecessary imputation or scaling that could distort its meaning.
-    numerical_features = ["Age", "RestingBP", "Cholesterol", "MaxHR", "Oldpeak"]
+    numerical_features = ["Age", "RestingBP", "Cholesterol", "MaxHR", "Oldpeak", "FastingBS"]
     categorical_features = ["Sex", "ChestPainType", "RestingECG", "ExerciseAngina", "ST_Slope"]
 
     # CATEGORICAL PIPELINE
@@ -49,8 +47,7 @@ def train_and_evaluate():
         transformers=[
             ("num", base_num_pipeline, numerical_features),
             ("cat", base_cat_pipeline, categorical_features),
-        ],
-        remainder="passthrough"
+        ]
     )
 
     models = {
@@ -91,6 +88,17 @@ def train_and_evaluate():
                 "clf__min_samples_split": [2, 5],
                 "clf__class_weight": [None, "balanced"]
             }
+        },
+        "SVM": {
+            "estimator": Pipeline([
+                ("prep", preprocessor), 
+                ("clf", SVC(probability=True, random_state=42))
+            ]),
+            "param_grid": {
+                "clf__C": [0.1, 1.0, 10.0],
+                "clf__kernel": ["linear", "rbf"],
+                "clf__class_weight": [None, "balanced"]
+            }
         }
     }
 
@@ -110,6 +118,7 @@ def train_and_evaluate():
         
         outer_accuracies, outer_f1, outer_kappa = [], [], []
         y_true_all, y_prob_all = [], []
+        outer_params = []
         
         for i, (train_ix, test_ix) in enumerate(outer_cv.split(X, y)):
             X_train, X_test = X.iloc[train_ix], X.iloc[test_ix]
@@ -128,12 +137,16 @@ def train_and_evaluate():
             outer_accuracies.append(fold_acc)
             outer_f1.append(f1_score(y_test, y_pred))
             outer_kappa.append(cohen_kappa_score(y_test, y_pred))
+
+            # Save parameters for this fold
+            best_params = clf_search.best_params_
+            outer_params.append(best_params)
             
             y_true_all.extend(y_test.values)
             y_prob_all.extend(y_prob)
 
             print(f"Fold {i+1}/{total_folds} | F1: {outer_f1[-1]:.4f} | Acc: {outer_accuracies[-1]:.4f} | Kappa: {outer_kappa[-1]:.4f}")
-            print(f"Params: {clf_search.best_params_}\n")
+            print(f"Params: {best_params}\n")
 
         # Aggregate Results
         mean_acc = np.mean(outer_accuracies)
@@ -182,7 +195,8 @@ def train_and_evaluate():
                 "fold": i + 1,
                 "accuracy": float(outer_accuracies[i]),
                 "f1_score": float(outer_f1[i]),
-                "kappa_stat": float(outer_kappa[i])
+                "kappa_stat": float(outer_kappa[i]),
+                "best_params": outer_params[i]
             }
             results["folds"].append(fold_result)
         
@@ -197,7 +211,8 @@ def train_and_evaluate():
             'f1_scores': outer_f1,
             'kappa_scores': outer_kappa,
             'y_true': y_true_all,
-            'y_prob': y_prob_all
+            'y_prob': y_prob_all,
+            'best_params': outer_params
         }
 
     joblib.dump(all_results, f"{RESULTS_DIR}/cv_evaluation_results.pkl")
