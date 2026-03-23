@@ -2,12 +2,12 @@
 
 This project focuses on predicting heart failure using clinical data. Unlike standard predictive modeling pipelines, this repository emphasizes methodological rigor, statistical validation, and clinical interpretability.
 
-We benchmark three multivariate machine learning models (Logistic Regression, KNN, Random Forest) against a heuristic baseline (1-Rule classifier). The evaluation is performed using 10-Times Repeated 10-Fold Nested Cross-Validation, and the performance differences are rigorously tested using the Corrected Resampled Paired t-test (Nadeau & Bengio, 2003) and ROC Convex Hull (ROCCH) analysis.
+We benchmark three multivariate machine learning models (Logistic Regression, KNN, Random Forest, SVM) against a heuristic baseline (1-Rule classifier). The evaluation is performed using 10-Times Repeated 10-Fold Nested Cross-Validation, and the performance differences are rigorously tested using the Corrected Resampled Paired t-test (Nadeau & Bengio, 2003), specifically adopting the formulation for Repeated k-fold Cross-Validation (Bouckaert & Frank 2004), and ROC Convex Hull (ROCCH) analysis.
 
 ## Key Findings
 *Methodological Validation*: All multivariate models significantly outperformed the 1R Baseline (p<0.05).
 
-*Model Selection*: Logistic Regression, Random Forest, and KNN achieved a statistical tie in predictive performance. `Logistic Regression` was selected as the optimal model due to its intrinsic interpretability (White-Box), allowing medical professionals to extract exact Odds Ratios for clinical decision-making.
+*Model Selection*: Logistic Regression, Random Forest, SVM, and KNN showed no statistically significant differences in predictive performance. `Logistic Regression` was therefore selected as the preferred model because its white-box structure enables direct interpretation of feature effects, supporting transparent clinical reasoning and easier communication with medical professionals.
 
 ## Project Structure
 
