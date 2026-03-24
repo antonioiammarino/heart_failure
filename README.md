@@ -1,4 +1,4 @@
-# Beyond Accuracy: A Statistically Comparison of Machine Learning Models for Heart Disease Prediction
+# Beyond Accuracy: A Statistical Comparison of Machine Learning Models for Heart Disease Prediction
 
 This project focuses on predicting heart failure using clinical data. Unlike standard predictive modeling pipelines, this repository emphasizes methodological rigor, statistical validation, and clinical interpretability.
 
