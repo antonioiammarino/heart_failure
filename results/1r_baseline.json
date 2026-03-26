@@ -1,14 +1,12 @@
 {
   "model": "1R Baseline",
-  "total_instances": 9180,
-  "total_successes": 7470,
   "metrics": {
     "accuracy": 0.8137279025322505,
     "f1_score": 0.833847075013471,
     "kappa_stat": 0.6218580425473548,
     "confidence_interval_99": {
-      "lower": 0.8030334949097667,
-      "upper": 0.8239643192878076
+      "lower": 0.7779618249109169,
+      "upper": 0.849493980153584
     }
   },
   "folds": [
