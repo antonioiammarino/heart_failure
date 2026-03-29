@@ -2,9 +2,17 @@
 
 This project focuses on predicting heart failure using clinical data. Unlike standard predictive modeling pipelines, this repository emphasizes methodological rigor, statistical validation, and clinical interpretability.
 
-We benchmark three multivariate machine learning models (Logistic Regression, KNN, Random Forest, SVM) against a heuristic baseline (1-Rule classifier). The evaluation is performed using 10-Times Repeated 10-Fold Nested Cross-Validation, and the performance differences are rigorously tested using the Corrected Resampled Paired t-test (Nadeau & Bengio, 2003), specifically adopting the formulation for Repeated k-fold Cross-Validation (Bouckaert & Frank 2004), and ROC Convex Hull (ROCCH) analysis.
+We benchmark four multivariate machine learning models (Logistic Regression, KNN, Random Forest, SVM) against a heuristic baseline (1-Rule classifier). The evaluation is performed using 10-Times Repeated 10-Fold Nested Cross-Validation, and the performance differences are rigorously tested using the Corrected Resampled Paired t-test (Nadeau & Bengio, 2003), specifically adopting the formulation for Repeated k-fold Cross-Validation (Bouckaert & Frank 2004), and ROC Convex Hull (ROCCH) analysis.
 
 ## Key Findings
+| Model | Accuracy (99% CI) | F1-Score | Cohen's Kappa |
+|-------|-------------------|----------|---------------|
+| **1R Baseline** | 0.8137 [0.778 - 0.849] | 0.8338 | 0.6219 |
+| **Logistic Regression** | 0.8585 [0.827 - 0.890] | 0.8740 | 0.7127 |
+| **KNN** | 0.8627 [0.829 - 0.897] | 0.8779 | 0.7212 |
+| **Random Forest** | 0.8621 [0.830 - 0.894] | 0.8772 | 0.7199 |
+| **SVM** | 0.8672 [0.836 - 0.898] | 0.8823 | 0.7300 |
+
 *Methodological Validation*: All multivariate models significantly outperformed the 1R Baseline (p<0.05).
 
 *Model Selection*: Logistic Regression, Random Forest, SVM, and KNN showed no statistically significant differences in predictive performance. `Logistic Regression` was therefore selected as the preferred model because its white-box structure enables direct interpretation of feature effects, supporting transparent clinical reasoning and easier communication with medical professionals.
